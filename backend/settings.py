@@ -93,10 +93,10 @@ pymysql.install_as_MySQLdb()
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "weather",
-        "USER": "root",
-        "PASSWORD": "",
-        "HOST": "localhost",
+        "NAME": "blwywub15bfp5arupuyk",
+        "USER": "uogd3afs6xpzttln",
+        "PASSWORD": "EomwVgyTyhVotBUQ8TFy",
+        "HOST": "blwywub15bfp5arupuyk-mysql.services.clever-cloud.com",
         "PORT":"3306"
     }
 }

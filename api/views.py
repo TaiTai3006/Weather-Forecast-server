@@ -4,13 +4,18 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from api.serializers import *
 import smtplib
+from django.contrib.auth.models import User
 from email.message import EmailMessage
+from rest_framework.authtoken.models import Token
 from rest_framework import status
+from django.shortcuts import get_object_or_404
+import json
 
 @api_view(['GET'])
 def getWeatherInfo(request):
     q = request.GET.get('q', '')
-    data = requests.get(f'http://api.weatherapi.com/v1/forecast.json?key=c51aaf3dcc494cc8865115316242607&q={q}&days=5').json()
+    days = request.GET.get('days', 5)
+    data = requests.get(f'http://api.weatherapi.com/v1/forecast.json?key=c51aaf3dcc494cc8865115316242607&q={q}&days={days}').json()
     return Response(data)
    
 @api_view(['GET'])
@@ -32,15 +37,80 @@ def register(request):
                  '''Thank you for your interest and following. Your location has been updated again.''', 
                  mail_instance.gmail)
         serializer = MailSerializer(mail_instance)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    except Mail.DoesNotExist:  # Catch the correct exception
-        # Create a new record if it doesn't exist
-        data = {
+        return Response({
             "gmail": request.data.get('gmail', ''),
             "location": request.data.get('location', ''),
-            "status": 1
+            "status": 1,
+            "active": 1,
+        }, status=status.HTTP_201_CREATED)
+    
+    except Mail.DoesNotExist: 
+
+
+
+        user, created = User.objects.get_or_create(username=request.data.get('gmail', ''))
+        print(user)
+
+        if created:
+            token = Token.objects.create(user=user)
+        else:
+            token = Token.objects.get(user=user)
+        
+        
+        sendmail('[Subscribe] Welcome to G-Weather-Forecast', 
+                     f'''Please click on the link to confirm your registration, http://localhost:3000/?token={token.key}''', 
+                     request.data.get('gmail', ''))
+
+        return Response({
+            "gmail": request.data.get('gmail', ''),
+            "location": request.data.get('location', ''),
+            "status": 0,
+            "active": 0,
+        }, status=status.HTTP_201_CREATED)
+       
+        # data = {
+        #     "gmail": request.data.get('gmail', ''),
+        #     "location": request.data.get('location', ''),
+        #     "status": 1
+        # }
+        
+        # serializer = MailSerializer(data=data)
+        # if serializer.is_valid():
+        #     serializer.save()
+
+        #     sendmail('[Subscribe] Welcome to G-Weather-Forecast', 
+        #              '''Thank you for your interest and following, hope to provide useful weather information for you.
+        #              Weather information will be announced every day.''', 
+        #              data['gmail'])
+
+        #     sendWheatherInfo(data['location'], data['gmail'])
+        
+        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+@api_view(['POST'])
+def emailConfirmation (request):
+
+    gmail = request.data.get('gmail', '')
+    token = request.data.get('token', '')
+    q = request.data.get('location', '')
+
+    user, created = User.objects.get_or_create(username=gmail)
+        
+    if created:
+        tokenUser = Token.objects.create(user=user)
+    else:
+        tokenUser = Token.objects.get(user=user)
+    
+    data = {
+            "gmail": gmail,
+            "location": q,
+            "status": 1,
+            "active": 1,
         }
+    print(tokenUser.key, token)
+    
+    if tokenUser.key == token:
+       
         
         serializer = MailSerializer(data=data)
         if serializer.is_valid():
@@ -54,14 +124,20 @@ def register(request):
             sendWheatherInfo(data['location'], data['gmail'])
         
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+
+
 @api_view(['POST'])
 def logout(request):
     mail_instance = Mail.objects.get(gmail=request.data.get('gmail', ''))  # Use the model class
 
     mail_instance.status = 0
     mail_instance.save()
+
+    user = get_object_or_404(User, username = request.data.get('gmail', ''))
+    Token.objects.filter(user=user).delete()
 
     sendmail('[Unsubscribe] G-Weather-Forecast thank you.', 
                  '''Thank you for your interest and following. See you again one day soon.''', 

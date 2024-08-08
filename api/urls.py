@@ -7,4 +7,5 @@ urlpatterns = [
   path('getLocationByIP/', getLocationByIP, name='getLocationByIP'),
   path('register/', register, name='register'),
   path('logout/', logout, name='logout'),
+  path('emailConfirmation/', emailConfirmation, name='emailConfirmation'),
 ]
